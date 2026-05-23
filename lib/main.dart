@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, Process;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,7 +32,7 @@ void main() async {
   }
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
+    statusBarColor: Color(0xFF1B5E20),
     statusBarIconBrightness: Brightness.light,
     systemNavigationBarColor: Colors.black,
     systemNavigationBarIconBrightness: Brightness.light,
@@ -67,23 +67,32 @@ class WebViewScreen extends StatefulWidget {
 
 class _WebViewScreenState extends State<WebViewScreen> {
   late final WebViewController _controller;
-  bool _isLoading = true;
+  bool _webViewReady = false;
   bool _hasError = false;
   String? _sessionToken;
+
+  static const String _currentVersion = '1.0.0';
+  static const String _githubRepo = 'trekgame55/apk';
 
   @override
   void initState() {
     super.initState();
     _initWebView();
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _setupFCM());
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        _setupFCM();
+      }
+      _checkForUpdates();
+    });
   }
 
   void _initWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+      )
       ..addJavaScriptChannel(
         'FlutterBridge',
         onMessageReceived: (msg) {
@@ -94,27 +103,64 @@ class _WebViewScreenState extends State<WebViewScreen> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (url) => setState(() {
-            _isLoading = true;
-            _hasError = false;
-          }),
+          onPageStarted: (url) {
+            setState(() => _hasError = false);
+            _injectPushSupport();
+          },
           onPageFinished: (url) {
-            setState(() => _isLoading = false);
+            setState(() => _webViewReady = true);
             _requestSessionFromSite();
             _requestWebNotificationPermission();
           },
           onWebResourceError: (error) {
             debugPrint('WebView error: ${error.description}');
             if (error.isForMainFrame ?? true) {
-              setState(() {
-                _isLoading = false;
-                _hasError = true;
-              });
+              setState(() => _hasError = true);
             }
           },
         ),
       )
       ..loadRequest(Uri.parse(_baseUrl));
+  }
+
+  void _injectPushSupport() {
+    _controller.runJavaScript('''
+      (function() {
+        if (!window._flutterPushInjected) {
+          window._flutterPushInjected = true;
+          if (typeof Notification === "undefined") {
+            window.Notification = function Notification(title, options) {};
+            window.Notification.permission = "granted";
+            window.Notification.requestPermission = function() {
+              return Promise.resolve("granted");
+            };
+          } else if (Notification.permission === "default" || Notification.permission === "denied") {
+            try {
+              Object.defineProperty(Notification, "permission", { get: function() { return "granted"; } });
+            } catch(e) {}
+          }
+          if (!("serviceWorker" in navigator)) {
+            try {
+              Object.defineProperty(navigator, "serviceWorker", {
+                value: {
+                  ready: Promise.resolve({
+                    pushManager: {
+                      subscribe: function() { return Promise.resolve({ endpoint: "flutter-fcm", toJSON: function() { return {}; } }); },
+                      getSubscription: function() { return Promise.resolve(null); },
+                      permissionState: function() { return Promise.resolve("granted"); }
+                    },
+                    showNotification: function() {}
+                  }),
+                  register: function() { return Promise.resolve({}); },
+                  getRegistrations: function() { return Promise.resolve([]); }
+                },
+                configurable: true
+              });
+            } catch(e) {}
+          }
+        }
+      })();
+    ''');
   }
 
   void _requestWebNotificationPermission() {
@@ -125,6 +171,81 @@ class _WebViewScreenState extends State<WebViewScreen> {
         }
       })();
     ''');
+  }
+
+  Future<void> _checkForUpdates() async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://api.github.com/repos/$_githubRepo/releases/latest'),
+        headers: {'Accept': 'application/vnd.github.v3+json'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final latestTag = (data['tag_name'] as String? ?? '').replaceFirst('v', '');
+        final downloadUrl = data['html_url'] as String? ?? 'https://github.com/$_githubRepo/releases/latest';
+        if (latestTag.isNotEmpty && latestTag != _currentVersion) {
+          final prefs = await SharedPreferences.getInstance();
+          final dismissed = prefs.getString('dismissed_update') ?? '';
+          if (dismissed != latestTag && mounted) {
+            _showUpdateDialog(latestTag, downloadUrl);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Update check error: $e');
+    }
+  }
+
+  void _showUpdateDialog(String version, String downloadUrl) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.system_update, color: Color(0xFF4CAF50), size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Доступно обновление',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Вышла новая версия $version. Хотите скачать обновление?',
+          style: const TextStyle(color: Colors.white70, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('dismissed_update', version);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Позже', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (!kIsWeb && Platform.isWindows) {
+                await Process.run('cmd', ['/c', 'start', '', downloadUrl], runInShell: false);
+              } else {
+                _controller.loadRequest(Uri.parse(downloadUrl));
+              }
+            },
+            icon: const Icon(Icons.download),
+            label: const Text('Скачать'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4CAF50),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _requestSessionFromSite() {
@@ -291,54 +412,82 @@ class _WebViewScreenState extends State<WebViewScreen> {
     }
   }
 
+  Widget _buildSplash() {
+    return Container(
+      color: const Color(0xFF0D1A0D),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF4CAF50), strokeWidth: 3),
+            SizedBox(height: 20),
+            Text(
+              'AgroTehComert',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Загрузка...',
+              style: TextStyle(color: Colors.white38, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen() {
+    return Container(
+      color: const Color(0xFF0D0D0D),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off, color: Colors.white38, size: 64),
+            const SizedBox(height: 16),
+            const Text(
+              'Нет подключения',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Проверьте интернет-соединение',
+              style: TextStyle(color: Colors.white54),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() => _hasError = false);
+                _controller.loadRequest(Uri.parse(_baseUrl));
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Повторить'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D1A0D),
       body: SafeArea(
-        child: Stack(
-          children: [
-            WebViewWidget(controller: _controller),
-            if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(color: Color(0xFF4CAF50)),
-              ),
-            if (_hasError)
-              Container(
-                color: const Color(0xFF0D0D0D),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.wifi_off, color: Colors.white54, size: 64),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Нет подключения',
-                        style: TextStyle(color: Colors.white, fontSize: 18),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Проверьте интернет-соединение',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() => _hasError = false);
-                          _controller.loadRequest(Uri.parse(_baseUrl));
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Повторить'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: _hasError
+            ? _buildErrorScreen()
+            : _webViewReady
+                ? WebViewWidget(controller: _controller)
+                : _buildSplash(),
       ),
     );
   }
