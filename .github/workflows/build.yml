@@ -1,0 +1,69 @@
+name: Build APK + Windows
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Скачиваем код из репозитория
+        uses: actions/checkout@v4
+
+      - name: Устанавливаем Java (необходима для Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Устанавливаем Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Устанавливаем зависимости
+        run: flutter pub get
+
+      - name: Собираем релизный APK
+        run: flutter build apk --release
+
+      - name: Загружаем APK в артефакты
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Скачиваем код из репозитория
+        uses: actions/checkout@v4
+
+      - name: Устанавливаем Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Устанавливаем зависимости
+        run: flutter pub get
+
+      - name: Включаем поддержку Windows
+        run: flutter config --enable-windows-desktop
+
+      - name: Собираем Windows приложение
+        run: flutter build windows --release
+
+      - name: Упаковываем в ZIP
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath windows-release.zip
+
+      - name: Загружаем Windows EXE в артефакты
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: windows-release.zip
