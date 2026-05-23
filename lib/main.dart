@@ -1,37 +1,19 @@
 import 'dart:convert';
-import 'dart:io' show Platform, Process;
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'windows_webview_screen.dart';
 
 const String _baseUrl = 'https://service.agrotehcomert.com';
-const String _apiBase = 'https://service.agrotehcomert.com/api';
-
-// Обработчик фоновых уведомлений
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  debugPrint("Background message: ${message.messageId}");
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  if (!kIsWeb) {
-    try {
-      await Firebase.initializeApp();
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    } catch (e) {
-      debugPrint("Firebase init error: $e");
-    }
-  }
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Color(0xFF0A0A12),
@@ -78,7 +60,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
   late final WebViewController _controller;
   bool _webViewReady = false;
   bool _hasError = false;
-  String? _sessionToken;
 
   static const String _githubRepo = 'trekgame55/apk';
 
@@ -87,9 +68,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.initState();
     _initWebView();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        _setupFCM();
-      }
       _checkForUpdates();
     });
   }
@@ -101,14 +79,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
       ..setUserAgent(
         'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
       )
-      ..addJavaScriptChannel(
-        'FlutterBridge',
-        onMessageReceived: (msg) {
-          _sessionToken = msg.message;
-          debugPrint("Session token received from site");
-          _registerFcmToken();
-        },
-      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
@@ -117,7 +87,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
           },
           onPageFinished: (url) {
             setState(() => _webViewReady = true);
-            _requestSessionFromSite();
             _requestWebNotificationPermission();
           },
           onWebResourceError: (error) {
@@ -255,10 +224,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
           ElevatedButton.icon(
             onPressed: () async {
               Navigator.pop(ctx);
-              if (!kIsWeb && Platform.isWindows) {
-                await Process.run('cmd', ['/c', 'start', '', downloadUrl], runInShell: false);
-              } else {
-                _controller.loadRequest(Uri.parse(downloadUrl));
+              final uri = Uri.parse(downloadUrl);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
               }
             },
             icon: const Icon(Icons.download),
@@ -273,171 +241,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
         ],
       ),
     );
-  }
-
-  void _requestSessionFromSite() {
-    _controller.runJavaScript('''
-      (function() {
-        var token = null;
-        // Пробуем localStorage
-        try { token = localStorage.getItem("session_token") || localStorage.getItem("token"); } catch(e) {}
-        // Пробуем cookies
-        if (!token) {
-          var cookies = document.cookie.split(";");
-          for (var i = 0; i < cookies.length; i++) {
-            var pair = cookies[i].trim().split("=");
-            if (pair[0] === "session_token" || pair[0] === "token") {
-              token = pair[1];
-              break;
-            }
-          }
-        }
-        if (token && typeof FlutterBridge !== "undefined") {
-          FlutterBridge.postMessage(token);
-        }
-      })();
-    ''');
-  }
-
-  Future<void> _setupFCM() async {
-    try {
-      if (!mounted) return;
-
-      final shouldRequest = await _showNotificationPermissionDialog();
-      if (!shouldRequest || !mounted) return;
-
-      final messaging = FirebaseMessaging.instance;
-      final settings = await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-      debugPrint("Notification auth: ${settings.authorizationStatus}");
-
-      messaging.onTokenRefresh.listen((newToken) {
-        _registerFcmToken(token: newToken);
-      });
-
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        if (message.notification != null && mounted) {
-          _showInAppNotification(message);
-        }
-      });
-
-      await _registerFcmToken();
-    } catch (e) {
-      debugPrint("FCM setup error: $e");
-    }
-  }
-
-  Future<bool> _showNotificationPermissionDialog() async {
-    if (!mounted) return false;
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A22),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.notifications_active, color: Color(0xFF7C5CFC), size: 28),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Уведомления',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        content: const Text(
-          'Разрешите уведомления, чтобы получать важные сообщения о заказах, новых предложениях и обновлениях.',
-          style: TextStyle(color: Colors.white70, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Позже', style: TextStyle(color: Colors.white54)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C5CFC),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: const Text('Разрешить', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
-  void _showInAppNotification(RemoteMessage message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.notification!.title ?? '',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            if (message.notification!.body != null)
-              Text(
-                message.notification!.body!,
-                style: const TextStyle(color: Colors.white70),
-              ),
-          ],
-        ),
-        duration: const Duration(seconds: 5),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF7C5CFC),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Future<void> _registerFcmToken({String? token}) async {
-    if (kIsWeb) return;
-    try {
-      final messaging = FirebaseMessaging.instance;
-      final fcmToken = token ?? await messaging.getToken();
-      if (fcmToken == null) return;
-
-      debugPrint("FCM Token: $fcmToken");
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('fcm_token', fcmToken);
-
-      final sessionToken = _sessionToken ?? prefs.getString('session_token');
-      if (sessionToken == null || sessionToken.isEmpty) {
-        debugPrint("No session token — FCM will be registered after login");
-        return;
-      }
-
-      final response = await http.post(
-        Uri.parse('$_apiBase/fcm/register'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': 'token=$sessionToken',
-        },
-        body: jsonEncode({'token': fcmToken}),
-      );
-
-      if (response.statusCode == 200) {
-        debugPrint("FCM token registered on server");
-      } else {
-        debugPrint("FCM registration error: ${response.statusCode}");
-      }
-    } catch (e) {
-      debugPrint("FCM registration error: $e");
-    }
   }
 
   Widget _buildSplash() {

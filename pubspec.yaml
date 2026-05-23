@@ -36,11 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   webview_flutter: ^4.13.1
   webview_windows: ^0.4.0
-  firebase_core: ^4.7.0
-  firebase_messaging: ^16.2.0
   http: ^1.6.0
   shared_preferences: ^2.5.5
   package_info_plus: ^9.0.0
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
@@ -98,9 +97,8 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: true
   windows:
     generate: true
-    image_path: "c2d345478f67121f4198d46c472cf608.jpg"
+    image_path: "assets/app_icon.jpg"
     icon_size: 48
-  image_path: "c2d345478f67121f4198d46c472cf608.jpg"
+  image_path: "assets/app_icon.jpg"
