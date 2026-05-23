@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'windows_webview_screen.dart';
 
 const String _baseUrl = 'https://service.agrotehcomert.com';
 const String _apiBase = 'https://service.agrotehcomert.com/api';
@@ -52,7 +53,9 @@ class AgroTehComertApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)),
         scaffoldBackgroundColor: Colors.black,
       ),
-      home: const WebViewScreen(),
+      home: (!kIsWeb && Platform.isWindows)
+          ? const WindowsWebViewScreen()
+          : const WebViewScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

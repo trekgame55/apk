@@ -5,6 +5,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-android:
     name: Build Android APK
@@ -36,16 +39,6 @@ jobs:
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Создаём GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: "Release v1.0.${{ github.run_number }}"
-          files: build/app/outputs/flutter-apk/app-release.apk
-          generate_release_notes: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-windows:
     name: Build Windows EXE
@@ -80,3 +73,49 @@ jobs:
         with:
           name: windows-app
           path: windows-release.zip
+
+  release:
+    name: Создать GitHub Release
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Скачиваем APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: ./release-files
+
+      - name: Скачиваем Windows ZIP
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-app
+          path: ./release-files
+
+      - name: Переименовываем файлы
+        run: |
+          cd release-files
+          mv app-release.apk AgroTehComert-v1.0.${{ github.run_number }}.apk
+          mv windows-release.zip AgroTehComert-Windows-v1.0.${{ github.run_number }}.zip
+          ls -la
+
+      - name: Создаём GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "AgroTehComert v1.0.${{ github.run_number }}"
+          body: |
+            Автоматическая сборка #${{ github.run_number }}
+
+            **Скачать:**
+            - 📱 Android — `AgroTehComert-v1.0.${{ github.run_number }}.apk`
+            - 🖥️ Windows — `AgroTehComert-Windows-v1.0.${{ github.run_number }}.zip`
+          files: |
+            release-files/AgroTehComert-v1.0.${{ github.run_number }}.apk
+            release-files/AgroTehComert-Windows-v1.0.${{ github.run_number }}.zip
+          generate_release_notes: false
+          make_latest: "true"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
