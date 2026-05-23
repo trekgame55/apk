@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:webview_windows/webview_windows.dart';
 
 const String _baseUrl = 'https://service.agrotehcomert.com';
@@ -21,7 +22,6 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
   bool _hasError = false;
   String _errorMessage = '';
 
-  static const String _currentVersion = '1.0.0';
   static const String _githubRepo = 'trekgame55/apk';
 
   @override
@@ -36,6 +36,13 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
       await _controller.initialize();
       await _controller.setBackgroundColor(Colors.transparent);
       await _controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.sameWindow);
+
+      // Инжектим notification mock при каждой загрузке страницы
+      _controller.loadingState.listen((state) {
+        if (state == LoadingState.navigationCompleted) {
+          _injectNotificationMock();
+        }
+      });
 
       await _controller.loadUrl(_baseUrl);
 
@@ -53,6 +60,10 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
 
   Future<void> _checkForUpdates() async {
     try {
+      final info = await PackageInfo.fromPlatform();
+      final currentVersion = info.version;
+      debugPrint('Current app version: $currentVersion');
+
       final response = await http.get(
         Uri.parse('https://api.github.com/repos/$_githubRepo/releases/latest'),
         headers: {'Accept': 'application/vnd.github.v3+json'},
@@ -62,7 +73,7 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
         final latestTag = (data['tag_name'] as String? ?? '').replaceFirst('v', '');
         final downloadUrl = data['html_url'] as String? ??
             'https://github.com/$_githubRepo/releases/latest';
-        if (latestTag.isNotEmpty && latestTag != _currentVersion) {
+        if (latestTag.isNotEmpty && _isNewerVersion(latestTag, currentVersion)) {
           final prefs = await SharedPreferences.getInstance();
           final dismissed = prefs.getString('dismissed_update') ?? '';
           if (dismissed != latestTag && mounted) {
@@ -73,6 +84,57 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
     } catch (e) {
       debugPrint('Update check error: $e');
     }
+  }
+
+  bool _isNewerVersion(String latest, String current) {
+    final l = latest.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final c = current.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final maxLen = l.length > c.length ? l.length : c.length;
+    while (l.length < maxLen) l.add(0);
+    while (c.length < maxLen) c.add(0);
+    for (var i = 0; i < maxLen; i++) {
+      if (l[i] > c[i]) return true;
+      if (l[i] < c[i]) return false;
+    }
+    return false;
+  }
+
+  void _injectNotificationMock() {
+    _controller.executeScript('''
+      (function() {
+        if (window._flutterPushInjected) return;
+        window._flutterPushInjected = true;
+        try {
+          if (typeof Notification === "undefined") {
+            window.Notification = function Notification() {};
+            Object.defineProperty(window.Notification, "permission", { get: function() { return "granted"; }});
+            window.Notification.requestPermission = function() { return Promise.resolve("granted"); };
+          } else {
+            Object.defineProperty(Notification, "permission", { get: function() { return "granted"; }, configurable: true });
+            Notification.requestPermission = function() { return Promise.resolve("granted"); };
+          }
+        } catch(e) {}
+        try {
+          if (!("serviceWorker" in navigator) || navigator.serviceWorker === undefined) {
+            Object.defineProperty(navigator, "serviceWorker", {
+              value: {
+                ready: Promise.resolve({
+                  pushManager: {
+                    subscribe: function() { return Promise.resolve({endpoint: "flutter-fcm", toJSON: function() { return {}; }}); },
+                    getSubscription: function() { return Promise.resolve(null); },
+                    permissionState: function() { return Promise.resolve("granted"); }
+                  },
+                  showNotification: function() {}
+                }),
+                register: function() { return Promise.resolve({}); },
+                getRegistrations: function() { return Promise.resolve([]); }
+              },
+              configurable: true
+            });
+          }
+        } catch(e) {}
+      })();
+    ''');
   }
 
   void _showUpdateDialog(String version, String downloadUrl) {
@@ -237,9 +299,25 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
           final dy = event.scrollDelta.dy;
-          _controller.executeScript(
-            'window.scrollBy({top: $dy, left: 0, behavior: "auto"});',
-          );
+          final dx = event.scrollDelta.dx;
+          _controller.executeScript('''
+            (function() {
+              var dy = $dy;
+              var dx = $dx;
+              var el = document.activeElement;
+              while (el && el !== document.body) {
+                var style = window.getComputedStyle(el);
+                var oy = style.overflowY;
+                if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) {
+                  el.scrollTop += dy;
+                  return;
+                }
+                el = el.parentElement;
+              }
+              var target = document.scrollingElement || document.documentElement || document.body;
+              target.scrollBy({ top: dy, left: dx, behavior: "auto" });
+            })();
+          ''');
         }
       },
       child: Webview(

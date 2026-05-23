@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'windows_webview_screen.dart';
 
 const String _baseUrl = 'https://service.agrotehcomert.com';
@@ -79,7 +80,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
   bool _hasError = false;
   String? _sessionToken;
 
-  static const String _currentVersion = '1.0.0';
   static const String _githubRepo = 'trekgame55/apk';
 
   @override
@@ -183,6 +183,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   Future<void> _checkForUpdates() async {
     try {
+      final info = await PackageInfo.fromPlatform();
+      final currentVersion = info.version;
+      debugPrint('Current app version: $currentVersion');
+
       final response = await http.get(
         Uri.parse('https://api.github.com/repos/$_githubRepo/releases/latest'),
         headers: {'Accept': 'application/vnd.github.v3+json'},
@@ -191,7 +195,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final latestTag = (data['tag_name'] as String? ?? '').replaceFirst('v', '');
         final downloadUrl = data['html_url'] as String? ?? 'https://github.com/$_githubRepo/releases/latest';
-        if (latestTag.isNotEmpty && latestTag != _currentVersion) {
+        if (latestTag.isNotEmpty && _isNewerVersion(latestTag, currentVersion)) {
           final prefs = await SharedPreferences.getInstance();
           final dismissed = prefs.getString('dismissed_update') ?? '';
           if (dismissed != latestTag && mounted) {
@@ -204,15 +208,28 @@ class _WebViewScreenState extends State<WebViewScreen> {
     }
   }
 
+  bool _isNewerVersion(String latest, String current) {
+    final l = latest.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final c = current.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final maxLen = l.length > c.length ? l.length : c.length;
+    while (l.length < maxLen) l.add(0);
+    while (c.length < maxLen) c.add(0);
+    for (var i = 0; i < maxLen; i++) {
+      if (l[i] > c[i]) return true;
+      if (l[i] < c[i]) return false;
+    }
+    return false;
+  }
+
   void _showUpdateDialog(String version, String downloadUrl) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: const Color(0xFF1A1A22),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.system_update, color: Color(0xFFBA68C8), size: 28),
+            Icon(Icons.system_update, color: Color(0xFF7C5CFC), size: 28),
             SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -319,11 +336,11 @@ class _WebViewScreenState extends State<WebViewScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: const Color(0xFF1A1A22),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.notifications_active, color: Color(0xFFBA68C8), size: 28),
+            Icon(Icons.notifications_active, color: Color(0xFF7C5CFC), size: 28),
             SizedBox(width: 10),
             Expanded(
               child: Text(

@@ -17,6 +17,12 @@ jobs:
       - name: Скачиваем код из репозитория
         uses: actions/checkout@v4
 
+      - name: Устанавливаем версию в pubspec.yaml
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: 1.0.${{ github.run_number }}+${{ github.run_number }}/" pubspec.yaml
+          grep '^version:' pubspec.yaml
+
       - name: Устанавливаем Java (необходима для Android)
         uses: actions/setup-java@v4
         with:
@@ -47,6 +53,12 @@ jobs:
     steps:
       - name: Скачиваем код из репозитория
         uses: actions/checkout@v4
+
+      - name: Устанавливаем версию в pubspec.yaml
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: 1.0.${{ github.run_number }}+${{ github.run_number }}/" pubspec.yaml
+          grep '^version:' pubspec.yaml
 
       - name: Устанавливаем Flutter
         uses: subosito/flutter-action@v2
