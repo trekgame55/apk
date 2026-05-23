@@ -82,9 +82,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
-      ..setOnPermissionRequest((WebViewPermissionRequest request) async {
-        await request.grant();
-      })
       ..addJavaScriptChannel(
         'FlutterBridge',
         onMessageReceived: (msg) {
