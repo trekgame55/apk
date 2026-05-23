@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -67,13 +68,14 @@ class WebViewScreen extends StatefulWidget {
 class _WebViewScreenState extends State<WebViewScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  bool _hasError = false;
   String? _sessionToken;
 
   @override
   void initState() {
     super.initState();
     _initWebView();
-    if (!kIsWeb) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _setupFCM());
     }
   }
@@ -92,14 +94,24 @@ class _WebViewScreenState extends State<WebViewScreen> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (url) => setState(() => _isLoading = true),
+          onPageStarted: (url) => setState(() {
+            _isLoading = true;
+            _hasError = false;
+          }),
           onPageFinished: (url) {
             setState(() => _isLoading = false);
             _requestSessionFromSite();
             _requestWebNotificationPermission();
           },
-          onWebResourceError: (error) =>
-              debugPrint('WebView error: ${error.description}'),
+          onWebResourceError: (error) {
+            debugPrint('WebView error: ${error.description}');
+            if (error.isForMainFrame ?? true) {
+              setState(() {
+                _isLoading = false;
+                _hasError = true;
+              });
+            }
+          },
         ),
       )
       ..loadRequest(Uri.parse(_baseUrl));
@@ -289,6 +301,41 @@ class _WebViewScreenState extends State<WebViewScreen> {
             if (_isLoading)
               const Center(
                 child: CircularProgressIndicator(color: Color(0xFF4CAF50)),
+              ),
+            if (_hasError)
+              Container(
+                color: const Color(0xFF0D0D0D),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.wifi_off, color: Colors.white54, size: 64),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Нет подключения',
+                        style: TextStyle(color: Colors.white, fontSize: 18),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Проверьте интернет-соединение',
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() => _hasError = false);
+                          _controller.loadRequest(Uri.parse(_baseUrl));
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Повторить'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
           ],
         ),

@@ -56,6 +56,9 @@ jobs:
       - name: Включаем поддержку Windows
         run: flutter config --enable-windows-desktop
 
+      - name: Генерируем иконки
+        run: dart run flutter_launcher_icons
+
       - name: Собираем Windows приложение
         run: flutter build windows --release
 

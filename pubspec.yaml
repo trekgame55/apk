@@ -97,4 +97,8 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
+  windows:
+    generate: true
+    image_path: "c2d345478f67121f4198d46c472cf608.jpg"
+    icon_size: 48
   image_path: "c2d345478f67121f4198d46c472cf608.jpg"
