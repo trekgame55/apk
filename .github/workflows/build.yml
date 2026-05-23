@@ -77,14 +77,20 @@ jobs:
       - name: Собираем Windows приложение
         run: flutter build windows --release
 
-      - name: Упаковываем в ZIP
-        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath windows-release.zip
+      - name: Копируем иконку для установщика
+        shell: bash
+        run: cp windows/runner/resources/app_icon.ico windows/installer/app_icon.ico
 
-      - name: Загружаем Windows EXE в артефакты
+      - name: Компилируем установщик (Inno Setup)
+        shell: cmd
+        run: |
+          "%programfiles(x86)%\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.0.${{ github.run_number }} windows\installer\installer.iss
+
+      - name: Загружаем установщик в артефакты
         uses: actions/upload-artifact@v4
         with:
-          name: windows-app
-          path: windows-release.zip
+          name: windows-installer
+          path: dist/AgroTehComert-Setup-v1.0.${{ github.run_number }}.exe
 
   release:
     name: Создать GitHub Release
@@ -100,17 +106,16 @@ jobs:
           name: android-apk
           path: ./release-files
 
-      - name: Скачиваем Windows ZIP
+      - name: Скачиваем Windows установщик
         uses: actions/download-artifact@v4
         with:
-          name: windows-app
+          name: windows-installer
           path: ./release-files
 
-      - name: Переименовываем файлы
+      - name: Переименовываем APK
         run: |
           cd release-files
           mv app-release.apk AgroTehComert-v1.0.${{ github.run_number }}.apk
-          mv windows-release.zip AgroTehComert-Windows-v1.0.${{ github.run_number }}.zip
           ls -la
 
       - name: Создаём GitHub Release
@@ -123,10 +128,10 @@ jobs:
 
             **Скачать:**
             - 📱 Android — `AgroTehComert-v1.0.${{ github.run_number }}.apk`
-            - 🖥️ Windows — `AgroTehComert-Windows-v1.0.${{ github.run_number }}.zip`
+            - 🖥️ Windows — `AgroTehComert-Setup-v1.0.${{ github.run_number }}.exe`
           files: |
             release-files/AgroTehComert-v1.0.${{ github.run_number }}.apk
-            release-files/AgroTehComert-Windows-v1.0.${{ github.run_number }}.zip
+            release-files/AgroTehComert-Setup-v1.0.${{ github.run_number }}.exe
           generate_release_notes: false
           make_latest: "true"
         env:

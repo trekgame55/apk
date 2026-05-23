@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show Platform, Process;
+import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -99,6 +99,113 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
     return false;
   }
 
+  Future<void> _downloadAndRunInstaller() async {
+    BuildContext? dialogContext;
+    try {
+      // 1. Получаем инфо о последнем релизе
+      final response = await http.get(
+        Uri.parse('https://api.github.com/repos/$_githubRepo/releases/latest'),
+        headers: {'Accept': 'application/vnd.github.v3+json'},
+      );
+      if (response.statusCode != 200) {
+        throw Exception('GitHub API вернул ${response.statusCode}');
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final assets = (data['assets'] as List<dynamic>?) ?? const [];
+
+      // 2. Ищем .exe установщик
+      String? installerUrl;
+      String? installerName;
+      int? totalSize;
+      for (final a in assets) {
+        final name = (a['name'] as String? ?? '').toLowerCase();
+        if (name.endsWith('.exe') && name.contains('setup')) {
+          installerUrl = a['browser_download_url'] as String?;
+          installerName = a['name'] as String?;
+          totalSize = a['size'] as int?;
+          break;
+        }
+      }
+      if (installerUrl == null || installerName == null) {
+        throw Exception('Установщик не найден в релизе');
+      }
+
+      // 3. Показываем прогресс
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          dialogContext = ctx;
+          return const AlertDialog(
+            backgroundColor: Color(0xFF1A1A22),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+            ),
+            content: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF7C5CFC)),
+                  SizedBox(width: 20),
+                  Flexible(
+                    child: Text(
+                      'Скачивание обновления...',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      // 4. Скачиваем установщик в временную папку
+      final tempDir = Directory.systemTemp;
+      final installerPath = '${tempDir.path}\\$installerName';
+      final installerFile = File(installerPath);
+
+      final dl = await http.get(Uri.parse(installerUrl));
+      if (dl.statusCode != 200) {
+        throw Exception('Ошибка загрузки (Код ${dl.statusCode})');
+      }
+      if (totalSize != null && dl.bodyBytes.length < totalSize ~/ 2) {
+        throw Exception('Скачан неполный файл');
+      }
+      await installerFile.writeAsBytes(dl.bodyBytes, flush: true);
+
+      // 5. Запускаем установщик в фоновом режиме
+      await Process.start(
+        installerPath,
+        const [
+          '/SILENT',
+          '/CLOSEAPPLICATIONS',
+          '/RESTARTAPPLICATIONS',
+          '/NORESTART',
+        ],
+        mode: ProcessStartMode.detached,
+      );
+
+      // 6. Закрываем приложение — установщик сам его перезапустит
+      await Future.delayed(const Duration(seconds: 1));
+      exit(0);
+    } catch (e) {
+      debugPrint('Installer error: $e');
+      if (dialogContext != null && mounted) {
+        Navigator.of(dialogContext!, rootNavigator: true).pop();
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF7C5CFC),
+          content: Text('Ошибка обновления: $e'),
+        ),
+      );
+    }
+  }
+
   void _injectNotificationMock() {
     _controller.executeScript('''
       (function() {
@@ -171,13 +278,10 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
           ElevatedButton.icon(
             onPressed: () async {
               Navigator.pop(ctx);
-              if (Platform.isWindows) {
-                await Process.run('cmd', ['/c', 'start', '', downloadUrl],
-                    runInShell: false);
-              }
+              await _downloadAndRunInstaller();
             },
             icon: const Icon(Icons.download),
-            label: const Text('Скачать'),
+            label: const Text('Обновить'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7C5CFC),
               foregroundColor: Colors.white,
