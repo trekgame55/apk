@@ -33,9 +33,9 @@ void main() async {
   }
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Color(0xFF1B5E20),
+    statusBarColor: Color(0xFF0A0A12),
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Colors.black,
+    systemNavigationBarColor: Color(0xFF0A0A12),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
@@ -50,8 +50,13 @@ class AgroTehComertApp extends StatelessWidget {
     return MaterialApp(
       title: 'AgroTehComert Service',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)),
-        scaffoldBackgroundColor: Colors.black,
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF7C5CFC),
+          brightness: Brightness.dark,
+          surface: const Color(0xFF1A1A22),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF0A0A12),
       ),
       home: (!kIsWeb && Platform.isWindows)
           ? const WindowsWebViewScreen()
@@ -207,7 +212,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.system_update, color: Color(0xFF4CAF50), size: 28),
+            Icon(Icons.system_update, color: Color(0xFFBA68C8), size: 28),
             SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -242,8 +247,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
             icon: const Icon(Icons.download),
             label: const Text('Скачать'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4CAF50),
+              backgroundColor: const Color(0xFF7C5CFC),
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ],
@@ -316,7 +323,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.notifications_active, color: Color(0xFF4CAF50), size: 28),
+            Icon(Icons.notifications_active, color: Color(0xFFBA68C8), size: 28),
             SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -338,10 +345,11 @@ class _WebViewScreenState extends State<WebViewScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4CAF50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              backgroundColor: const Color(0xFF7C5CFC),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
-            child: const Text('Разрешить', style: TextStyle(color: Colors.white)),
+            child: const Text('Разрешить', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -372,7 +380,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         ),
         duration: const Duration(seconds: 5),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF7C5CFC),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -417,12 +425,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   Widget _buildSplash() {
     return Container(
-      color: const Color(0xFF0D1A0D),
+      color: const Color(0xFF0A0A12),
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: Color(0xFF4CAF50), strokeWidth: 3),
+            CircularProgressIndicator(color: Color(0xFF7C5CFC), strokeWidth: 3),
             SizedBox(height: 20),
             Text(
               'AgroTehComert',
@@ -446,7 +454,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   Widget _buildErrorScreen() {
     return Container(
-      color: const Color(0xFF0D0D0D),
+      color: const Color(0xFF0A0A12),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -471,8 +479,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Повторить'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
+                backgroundColor: const Color(0xFF7C5CFC),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -484,7 +494,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1A0D),
+      backgroundColor: const Color(0xFF0A0A12),
       body: SafeArea(
         child: _hasError
             ? _buildErrorScreen()

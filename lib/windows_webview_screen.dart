@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show Platform, Process;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,6 +36,7 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
       await _controller.initialize();
       await _controller.setBackgroundColor(Colors.transparent);
       await _controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.sameWindow);
+
       await _controller.loadUrl(_baseUrl);
 
       if (!mounted) return;
@@ -77,11 +79,11 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: const Color(0xFF1A1A22),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.system_update, color: Color(0xFF4CAF50), size: 28),
+            Icon(Icons.system_update, color: Color(0xFF7C5CFC), size: 28),
             SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -115,8 +117,10 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
             icon: const Icon(Icons.download),
             label: const Text('Скачать'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4CAF50),
+              backgroundColor: const Color(0xFF7C5CFC),
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ],
@@ -132,12 +136,12 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
 
   Widget _buildSplash() {
     return Container(
-      color: const Color(0xFF0D1A0D),
+      color: const Color(0xFF0A0A12),
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: Color(0xFF4CAF50), strokeWidth: 3),
+            CircularProgressIndicator(color: Color(0xFF7C5CFC), strokeWidth: 3),
             SizedBox(height: 20),
             Text(
               'AgroTehComert',
@@ -163,7 +167,7 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
     final isWebView2Missing = _errorMessage.toLowerCase().contains('webview2') ||
         _errorMessage.contains('runtime');
     return Container(
-      color: const Color(0xFF0D0D0D),
+      color: const Color(0xFF0A0A12),
       padding: const EdgeInsets.all(24),
       child: Center(
         child: Column(
@@ -198,8 +202,10 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
                 icon: const Icon(Icons.download),
                 label: const Text('Скачать WebView2'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
+                  backgroundColor: const Color(0xFF7C5CFC),
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               )
             else
@@ -214,8 +220,10 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
                 icon: const Icon(Icons.refresh),
                 label: const Text('Повторить'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
+                  backgroundColor: const Color(0xFF7C5CFC),
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
           ],
@@ -224,14 +232,33 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
     );
   }
 
+  Widget _buildWebViewWithScroll() {
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent) {
+          final dy = event.scrollDelta.dy;
+          _controller.executeScript(
+            'window.scrollBy({top: $dy, left: 0, behavior: "auto"});',
+          );
+        }
+      },
+      child: Webview(
+        _controller,
+        permissionRequested: (url, kind, isUserInitiated) async {
+          return WebviewPermissionDecision.allow;
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1A0D),
+      backgroundColor: const Color(0xFF0A0A12),
       body: _hasError
           ? _buildErrorScreen()
           : _initialized
-              ? Webview(_controller)
+              ? _buildWebViewWithScroll()
               : _buildSplash(),
     );
   }
