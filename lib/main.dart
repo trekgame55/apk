@@ -192,7 +192,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     final appLinks = AppLinks();
     try {
       final initial = await appLinks.getInitialLink();
-      if (initial != null && initial.host == 'service.agrotehcomert.com') {
+      if (initial != null && (initial.host == 'lan9es.ru' || initial.host == 'service.agrotehcomert.com')) {
         final q = initial.query.isNotEmpty ? '?${initial.query}' : '';
         _loadUrl = '$_baseUrl${initial.path}$q';
       }
@@ -200,7 +200,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
       debugPrint('Deep link init error: $e');
     }
     _deepLinkSub = appLinks.uriLinkStream.listen((uri) {
-      if (uri.host == 'service.agrotehcomert.com') {
+      if (uri.host == 'lan9es.ru' || uri.host == 'service.agrotehcomert.com') {
         final q = uri.query.isNotEmpty ? '?${uri.query}' : '';
         _controller.loadRequest(Uri.parse('$_baseUrl${uri.path}$q'));
       }

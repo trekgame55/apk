@@ -24,24 +24,14 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- App Links: https://service.agrotehcomert.com/invite/* -->
+            <!-- App Links: https://lan9es.ru -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
                     android:scheme="https"
-                    android:host="service.agrotehcomert.com"
-                    android:pathPrefix="/invite"/>
-            </intent-filter>
-            <!-- App Links: all AlphaTrack paths -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data
-                    android:scheme="https"
-                    android:host="service.agrotehcomert.com"/>
+                    android:host="lan9es.ru"/>
             </intent-filter>
             <!-- Custom scheme: alphatrack://invite/TOKEN -->
             <intent-filter>
