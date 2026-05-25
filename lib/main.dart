@@ -13,8 +13,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'windows_webview_screen.dart';
 
-const String _baseUrl = 'https://service.agrotehcomert.com';
-const String _githubRepo = 'trekgame55/apk';
+const String _baseUrl = 'https://lan9es.ru';
+const String _githubRepo = 'trekgame55/AgroTehComert-apk';
 
 // ─── Native notifications ───────────────────────────────────────────────────
 final FlutterLocalNotificationsPlugin _localNotifications =
