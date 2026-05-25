@@ -248,23 +248,23 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A22),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: const Color(0xFF111118),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.system_update, color: Color(0xFF7C5CFC), size: 28),
+            Icon(Icons.system_update_rounded, color: Color(0xFF6366F1), size: 28),
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Доступно обновление',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                'Обновление',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ),
           ],
         ),
         content: Text(
-          'Вышла новая версия $version. Хотите скачать обновление?',
-          style: const TextStyle(color: Colors.white70, height: 1.5),
+          'Версия $version готова к установке.',
+          style: const TextStyle(color: Color(0xFFB0B0C0), height: 1.5, fontSize: 14),
         ),
         actions: [
           TextButton(
@@ -283,10 +283,11 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
             icon: const Icon(Icons.download),
             label: const Text('Обновить'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C5CFC),
+              backgroundColor: const Color(0xFF6366F1),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
             ),
           ),
         ],
@@ -307,21 +308,21 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: Color(0xFF7C5CFC), strokeWidth: 3),
+            CircularProgressIndicator(color: Color(0xFF6366F1), strokeWidth: 3),
             SizedBox(height: 20),
             Text(
-              'AgroTehComert',
+              'AlphaTrack',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
               ),
             ),
             SizedBox(height: 6),
             Text(
-              'Загрузка...',
-              style: TextStyle(color: Colors.white38, fontSize: 13),
+              'Менеджер задач',
+              style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
             ),
           ],
         ),
@@ -368,10 +369,11 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
                 icon: const Icon(Icons.download),
                 label: const Text('Скачать WebView2'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C5CFC),
+                  backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
                 ),
               )
             else
@@ -383,13 +385,14 @@ class _WindowsWebViewScreenState extends State<WindowsWebViewScreen> {
                   });
                   _initWebView();
                 },
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Повторить'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C5CFC),
+                  backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
                 ),
               ),
           ],
