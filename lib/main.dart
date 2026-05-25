@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'firebase_options.dart';
 import 'windows_webview_screen.dart';
 
 const String _baseUrl = 'https://lan9es.ru';
@@ -54,6 +57,45 @@ Future<void> _showNativeNotification(
       payload: urlPath);
 }
 
+// ─── FCM background handler (top-level) ─────────────────────────────────────
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackground(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await _initNotifications();
+  final n = message.notification;
+  if (n != null) {
+    await _showNativeNotification(
+      n.title ?? 'AgroTehComert',
+      n.body ?? '',
+      message.data['url'] as String? ?? '/tasks',
+    );
+  }
+}
+
+// ─── FCM token → backend ─────────────────────────────────────────────────────
+Future<void> _registerFcmToken(String sessionToken) async {
+  try {
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    if (fcmToken == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('fcm_token_sent');
+    if (saved == fcmToken) return;
+    final res = await http.post(
+      Uri.parse('$_baseUrl/api/push/fcm-token'),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-session-token': sessionToken,
+      },
+      body: jsonEncode({'token': fcmToken}),
+    );
+    if (res.statusCode == 200) {
+      await prefs.setString('fcm_token_sent', fcmToken);
+    }
+  } catch (e) {
+    debugPrint('FCM token register: $e');
+  }
+}
+
 // ─── App entry ───────────────────────────────────────────────────────────────
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,7 +108,21 @@ void main() async {
   ));
 
   if (!kIsWeb && !Platform.isWindows) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackground);
+    await FirebaseMessaging.instance.requestPermission();
     await _initNotifications();
+
+    FirebaseMessaging.onMessage.listen((msg) {
+      final n = msg.notification;
+      if (n != null) {
+        _showNativeNotification(
+          n.title ?? 'AgroTehComert',
+          n.body ?? '',
+          msg.data['url'] as String? ?? '/tasks',
+        );
+      }
+    });
   }
 
   runApp(const AlphaTrackApp());
@@ -270,6 +326,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
         if (token != null && token.isNotEmpty) {
           SharedPreferences.getInstance()
               .then((p) => p.setString('at_session', token));
+          if (!kIsWeb && !Platform.isWindows) {
+            _registerFcmToken(token);
+          }
         }
       }
     } catch (e) {
