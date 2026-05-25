@@ -81,6 +81,19 @@ class _WebViewScreenState extends State<WebViewScreen> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (request) async {
+            final url = request.url;
+            if (url.startsWith('tel:') ||
+                url.startsWith('mailto:') ||
+                url.startsWith('sms:')) {
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              }
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
           onPageStarted: (url) {
             setState(() => _hasError = false);
             _injectPushSupport();
