@@ -37,6 +37,9 @@ jobs:
       - name: Устанавливаем зависимости
         run: flutter pub get
 
+      - name: Генерируем иконки
+        run: dart run flutter_launcher_icons
+
       - name: Собираем релизный APK
         run: flutter build apk --release
 
