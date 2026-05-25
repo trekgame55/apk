@@ -24,6 +24,7 @@ final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
 
 String? _pendingNotifUrl;
+int _notifId = 0;
 
 Future<void> _initNotifications() async {
   const android = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -41,7 +42,6 @@ Future<void> _initNotifications() async {
 
 Future<void> _showNativeNotification(
     String title, String body, String urlPath) async {
-  static int _id = 0;
   const details = NotificationDetails(
     android: AndroidNotificationDetails(
       'alphatrack_main',
@@ -53,7 +53,7 @@ Future<void> _showNativeNotification(
       icon: '@mipmap/ic_launcher',
     ),
   );
-  await _localNotifications.show(_id++ % 9999, title, body, details,
+  await _localNotifications.show(_notifId++ % 9999, title, body, details,
       payload: urlPath);
 }
 
