@@ -78,7 +78,7 @@ class AlphaTrackApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AlphaTrack',
+      title: 'AgroTehComert',
       theme: ThemeData(
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
@@ -429,14 +429,14 @@ class _WebViewScreenState extends State<WebViewScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            const Text('AlphaTrack',
+            const Text('AgroTehComert',
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.3)),
             const SizedBox(height: 6),
-            const Text('Менеджер задач',
+            const Text('Сервис управления',
                 style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
             const SizedBox(height: 44),
             SizedBox(
